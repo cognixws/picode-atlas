@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlas</title>
+<link rel="stylesheet" href="../__picode/tokens.css">
+<style>
+  [hidden] { display: none !important; }
+  .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .head h1 { font-size: var(--pc-fs-title); margin: 0; margin-right: auto; }
+  .meta { color: var(--pc-text-muted); font-size: var(--pc-fs-label); margin: 0 0 12px; overflow-wrap: anywhere; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .controls input[type=search] { width: min(240px, 100%); }
+  .seg { display: inline-flex; }
+  .seg .pc-button { border-radius: 0; }
+  .seg .pc-button:first-child { border-radius: var(--pc-radius) 0 0 var(--pc-radius); }
+  .seg .pc-button:last-child { border-radius: 0 var(--pc-radius) var(--pc-radius) 0; border-left: 0; }
+  .seg .pc-button[aria-pressed=true] { border-color: var(--pc-accent); color: var(--pc-text); }
+  .count { color: var(--pc-text-muted); font-size: var(--pc-fs-label); }
+  section h2 { font-size: var(--pc-fs-body); margin: 18px 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 10px; }
+  .card { background: var(--pc-panel); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-panel); padding: 10px; min-width: 0; }
+  .card h3 { font-size: var(--pc-fs-body); margin: 0; }
+  .sub { margin: 2px 0 8px; color: var(--pc-text-muted); font-size: var(--pc-fs-label); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .states.one { grid-template-columns: minmax(0, 1fr); max-width: 50%; }
+  figure { margin: 0; min-width: 0; }
+  .thumb { position: relative; display: block; width: 100%; padding: 0; border: 1px solid var(--pc-border); border-radius: 6px; background: var(--pc-bg); cursor: zoom-in; overflow: hidden; }
+  .thumb img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+  .thumb:focus-visible, .pc-button:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 2px; }
+  .none { display: flex; align-items: center; justify-content: center; text-align: center; aspect-ratio: 16 / 10; border: 1px dashed var(--pc-border-strong); border-radius: 6px; color: var(--pc-text-muted); font-size: var(--pc-fs-label); padding: 8px; overflow: hidden; }
+  .none span { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .none.bad { border-color: var(--pc-danger); color: var(--pc-danger); }
+  figcaption { font-size: 11.5px; color: var(--pc-text-muted); margin-top: 3px; }
+  .tag { position: absolute; top: 4px; right: 4px; font-size: 11px; font-weight: 600; border: 1px solid var(--pc-accent); color: var(--pc-accent); background: var(--pc-elevated); border-radius: 999px; padding: 0 7px; }
+  .empty { border: 1px dashed var(--pc-border-strong); border-radius: var(--pc-radius); padding: 18px; text-align: center; margin-top: 12px; }
+  .empty h2 { font-size: var(--pc-fs-title); margin: 0 0 4px; }
+  .empty p { color: var(--pc-text-muted); margin: 0 0 12px; }
+  .running { display: inline-flex; align-items: center; gap: 8px; color: var(--pc-text-muted); font-size: var(--pc-fs-label); }
+  .spin { width: 12px; height: 12px; border: 2px solid var(--pc-border-strong); border-top-color: var(--pc-accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  dialog { border: 1px solid var(--pc-border-strong); border-radius: var(--pc-radius-panel); background: var(--pc-elevated); color: var(--pc-text); padding: 12px; width: min(1600px, calc(100vw - 32px)); max-height: calc(100vh - 32px); }
+  dialog::backdrop { background: rgb(0 0 0 / .6); }
+  .lb-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .lb-bar strong { flex: 1 1 auto; min-width: 0; }
+  .lb-bar #lb-x { margin-left: auto; }
+  dialog img { display: block; width: auto; max-width: 100%; max-height: calc(100vh - 110px); margin: 0 auto; object-fit: contain; border-radius: 6px; border: 1px solid var(--pc-border); }
+  .note { color: var(--pc-text-muted); font-size: var(--pc-fs-label); text-align: center; margin: 6px 0 0; }
+  @media (max-width: 600px) { .states.one { max-width: none; } }
+</style>
+</head>
+<body class="pc-page">
+<div class="head">
+  <h1 id="title">Atlas</h1>
+  <span id="run-state"></span>
+  <button class="pc-button primary" type="button" id="shoot" hidden>Photograph now</button>
+</div>
+<p class="meta" id="meta"></p>
+<div class="controls" id="controls" hidden>
+  <input class="pc-input" type="search" id="q" placeholder="Find a screen" aria-label="Find a screen">
+  <select class="pc-select" id="area" aria-label="Area"><option value="">Every area</option></select>
+  <span class="seg" role="group" aria-label="Theme of the pictures">
+    <button class="pc-button" type="button" data-theme-pick="light" aria-pressed="true">Light</button>
+    <button class="pc-button" type="button" data-theme-pick="dark" aria-pressed="false">Dark</button>
+  </span>
+  <span class="count" id="count"></span>
+</div>
+<main id="list"></main>
+<dialog id="lb" aria-labelledby="lb-title">
+  <div class="lb-bar">
+    <strong id="lb-title"></strong>
+    <span class="seg" id="lb-states"></span>
+    <button class="pc-button" type="button" id="lb-x">Close</button>
+  </div>
+  <img id="lb-img" alt="">
+  <p class="note" id="lb-note" hidden></p>
+</dialog>
+<script>
+(async () => {
+  const LABEL = { empty: "Empty", populated: "Populated", default: "Default", full: "Full" };
+  const label = (v) => LABEL[v] || (v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, " "));
+  const $ = (id) => document.getElementById(id);
+  const list = $("list");
+  let theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  let data = null;          // {surfaces, shots, run, ...}
+  let source = "workspace"; // or "artifact"
+  let proc = null, art = null, ws = null, thumbs = {}, poll = null;
+
+  function block(title, text, action) {
+    list.textContent = "";
+    $("controls").hidden = true;
+    const d = document.createElement("div"); d.className = "empty";
+    const h = document.createElement("h2"); h.textContent = title; d.append(h);
+    const p = document.createElement("p"); p.textContent = text; d.append(p);
+    if (action) { const b = document.createElement("button"); b.className = "pc-button primary"; b.type = "button"; b.textContent = action.label; b.addEventListener("click", action.run); d.append(b); }
+    list.append(d);
+  }
+
+  async function call(path, method = "GET", body) {
+    const r = await proc.request(path, { method, body });
+    const parsed = (() => { try { return JSON.parse(r.body || "{}"); } catch { return { error: "unreadable answer" }; } })();
+    if ((r.status || 200) >= 400) throw new Error(parsed.error || "the extension's process did not answer");
+    return parsed;
+  }
+
+  async function thumbUrl(file) {
+    const name = file.replace(/\.png$/, ".webp");
+    if (thumbs[name]) return thumbs[name];
+    if (source === "artifact") return "";
+    const r = await call(`/thumb?workspace=${encodeURIComponent(ws.id)}&file=${encodeURIComponent(name)}`);
+    thumbs[name] = "data:image/webp;base64," + r.data;
+    return thumbs[name];
+  }
+
+  async function fullUrl(file) {
+    if (source === "artifact") return "";
+    let b64 = "", chunk = 0, chunks = 1;
+    while (chunk < chunks) {
+      const r = await call(`/shot?workspace=${encodeURIComponent(ws.id)}&file=${encodeURIComponent(file)}&chunk=${chunk}`);
+      b64 += r.data; chunks = r.chunks; chunk++;
+    }
+    return "data:image/png;base64," + b64;
+  }
+
+  const name = (s, st, th) => `${s}.${st}.${th}.png`;
+
+  function figure(s, st) {
+    const f = document.createElement("figure");
+    const file = name(s.id, st, theme);
+    const shot = data.shots[file];
+    const failed = (data.run?.failed || []).find((x) => x.surface === s.id && x.state === st && x.theme === theme);
+    if (shot) {
+      const b = document.createElement("button"); b.className = "thumb"; b.type = "button";
+      b.setAttribute("aria-label", `${s.title}, ${label(st).toLowerCase()} (open)`);
+      const img = document.createElement("img"); img.width = 640; img.height = 400; img.alt = `${s.title}, ${label(st).toLowerCase()}`;
+      b.append(img);
+      thumbUrl(file).then((u) => { if (u) img.src = u; }).catch(() => {});
+      if ((data.run?.written || []).includes(file)) { const t = document.createElement("span"); t.className = "tag"; t.textContent = "changed"; b.append(t); }
+      b.addEventListener("click", () => openLb(s, st));
+      f.append(b);
+    } else {
+      const why = s.owed ? "Owed: " + s.owed : s.broken?.[st] ? "Broken: " + s.broken[st] : failed ? "Failed: " + failed.error : "Not photographed yet";
+      const d = document.createElement("div"); d.className = "none" + (failed || s.broken?.[st] ? " bad" : ""); d.title = why;
+      const sp = document.createElement("span"); sp.textContent = why; d.append(sp);
+      f.append(d);
+    }
+    const cap = document.createElement("figcaption");
+    cap.textContent = label(st) + (shot?.rev ? " · " + shot.rev.slice(0, 9) : "");
+    f.append(cap);
+    return f;
+  }
+
+  function render() {
+    if (!data.surfaces.length) return block("No screens listed", "atlas.json names no surfaces yet. Add the app's screens to its list.", null);
+    $("controls").hidden = false;
+    const q = $("q").value.trim().toLowerCase();
+    const area = $("area").value;
+    list.textContent = "";
+    const areas = [...new Set(data.surfaces.map((s) => s.area))].sort();
+    let n = 0;
+    for (const a of areas) {
+      const cards = data.surfaces.filter((s) => s.area === a && (!area || area === a) && (!q || (s.title + " " + s.id + " " + s.route).toLowerCase().includes(q)));
+      if (!cards.length) continue;
+      const sec = document.createElement("section");
+      const h = document.createElement("h2"); h.textContent = label(a); sec.append(h);
+      const grid = document.createElement("div"); grid.className = "grid";
+      for (const s of cards) {
+        n++;
+        const c = document.createElement("article"); c.className = "card";
+        const t = document.createElement("h3"); t.textContent = s.title; c.append(t);
+        const sub = document.createElement("p"); sub.className = "sub";
+        if (s.route) { const r = document.createElement("code"); r.className = "pc-code"; r.textContent = s.route; sub.append(r); }
+        sub.append(s.kind); c.append(sub);
+        const sts = document.createElement("div"); sts.className = "states" + (s.states.length === 1 ? " one" : "");
+        for (const x of s.states) sts.append(figure(s, x));
+        c.append(sts); grid.append(c);
+      }
+      sec.append(grid); list.append(sec);
+    }
+    if (!n) {
+      const d = document.createElement("div"); d.className = "empty";
+      const p = document.createElement("p"); p.textContent = "No screen matches the search and filters."; d.append(p);
+      const b = document.createElement("button"); b.className = "pc-button"; b.type = "button"; b.textContent = "Clear filters";
+      b.addEventListener("click", () => { $("q").value = ""; $("area").value = ""; render(); });
+      d.append(b); list.append(d);
+    }
+    $("count").textContent = `${n} of ${data.surfaces.length}`;
+  }
+
+  function fillAreas() {
+    const sel = $("area");
+    sel.length = 1;
+    for (const a of [...new Set(data.surfaces.map((s) => s.area))].sort()) sel.append(new Option(label(a), a));
+  }
+
+  function showRunState(status, busy) {
+    const el = $("run-state"); el.textContent = "";
+    if (busy || status?.state === "running" || status?.state === "queued") {
+      el.className = "running";
+      const s = document.createElement("span"); s.className = "spin"; s.setAttribute("aria-hidden", "true");
+      el.append(s, status?.state === "queued" ? "Waiting for another run" : "Photographing…");
+      $("shoot").disabled = true;
+      return true;
+    }
+    el.className = "";
+    $("shoot").disabled = false;
+    if (status?.state === "failed") { el.className = "pc-danger"; el.textContent = "The last run failed: " + status.error; }
+    return false;
+  }
+
+  async function loadWorkspace() {
+    try {
+      const g = await call(`/gallery?workspace=${encodeURIComponent(ws.id)}`);
+      if (g.error) {
+        $("shoot").hidden = true;
+        return block("This project has no atlas yet", "Add an atlas.json at the root of the workspace's folder to say how the app starts and which screens it has.", null);
+      }
+      data = { surfaces: g.surfaces || [], shots: g.shots || {}, run: g.run };
+      $("title").textContent = "Atlas · " + (g.project || ws.name);
+      $("meta").textContent = [Object.keys(data.shots).length + " pictures", g.branch ? "branch " + g.branch : "", g.run?.at ? "last run " + g.run.at.replace("T", " ").slice(0, 16) + " UTC" : "", g.browser].filter(Boolean).join(" · ");
+      $("shoot").hidden = false;
+      const running = showRunState(g.status, g.busy);
+      if (g.surfacesError) return block("The list of screens did not load", g.surfacesError, null);
+      if (!Object.keys(data.shots).length && !running) return block("No pictures yet", "Photograph the app once to fill the gallery; later runs only rewrite what changed.", { label: "Photograph now", run: shoot });
+      fillAreas(); render();
+      clearTimeout(poll);
+      if (running) poll = setTimeout(loadWorkspace, 4000);
+    } catch (e) {
+      block("The Atlas process is not answering", e.message, { label: "Try again", run: loadWorkspace });
+    }
+  }
+
+  async function shoot() {
+    $("shoot").disabled = true;
+    try {
+      await call("/run", "POST", { workspace: ws.id });
+      showRunState({ state: "running" }, true);
+      poll = setTimeout(loadWorkspace, 1500);
+    } catch (e) {
+      $("shoot").disabled = false;
+      showRunState({ state: "failed", error: e.message }, false);
+    }
+  }
+
+  async function loadArtifact() {
+    try {
+      const m = JSON.parse((await art.read("appmap.json")).text);
+      try { const t = JSON.parse((await art.read("thumbs.json")).text); for (const [k, v] of Object.entries(t)) thumbs[k] = "data:image/webp;base64," + v; } catch { /* a map without thumbnails */ }
+      const shots = {};
+      const surfaces = m.screens.map((s) => ({
+        id: s.id, title: s.title, area: s.section || "app", kind: s.kind || "route", route: s.route || "",
+        states: s.states.map((st) => st.name || st.id),
+        broken: Object.fromEntries(s.states.filter((st) => st.broken).map((st) => [st.name || st.id, st.broken])),
+        owed: s.states.find((st) => st.owed)?.owed || "",
+      }));
+      for (const s of m.screens) for (const st of s.states) for (const c of st.captures || []) shots[c.file] = { rev: c.commit, theme: c.theme };
+      data = { surfaces, shots, run: null };
+      $("title").textContent = "App map · " + m.app.name;
+      $("meta").textContent = [Object.keys(shots).length + " pictures", m.generated?.branch ? "branch " + m.generated.branch : "", m.generated?.commit ? "commit " + m.generated.commit.slice(0, 9) : "", m.edges?.length ? m.edges.length + " edges" : "no edges yet"].filter(Boolean).join(" · ");
+      fillAreas(); render();
+    } catch (e) {
+      block("This map could not be read", e.message, null);
+    }
+  }
+
+  // The lightbox flips one screen between its states.
+  const lb = $("lb");
+  let cur = null;
+  async function show(st) {
+    const file = name(cur.id, st, theme);
+    for (const b of lb.querySelectorAll("[data-st]")) b.setAttribute("aria-pressed", b.dataset.st === st ? "true" : "false");
+    const img = $("lb-img"); img.alt = `${cur.title}, ${label(st).toLowerCase()}, ${theme}`;
+    img.src = await thumbUrl(file);
+    $("lb-note").hidden = source !== "artifact";
+    $("lb-note").textContent = "The map keeps thumbnails; the full picture is in the workspace's Atlas.";
+    if (source === "workspace") { try { img.src = await fullUrl(file); } catch { /* the thumbnail stays */ } }
+  }
+  function openLb(s, st) {
+    cur = s;
+    $("lb-title").textContent = s.title + (s.route ? " · " + s.route : "");
+    const box = $("lb-states"); box.textContent = "";
+    for (const x of s.states) {
+      const b = document.createElement("button"); b.className = "pc-button"; b.type = "button"; b.dataset.st = x; b.textContent = label(x);
+      b.disabled = !data.shots[name(s.id, x, theme)];
+      b.addEventListener("click", () => show(x)); box.append(b);
+    }
+    lb.showModal(); show(st);
+    (lb.querySelector("[data-st][aria-pressed=true]") || $("lb-x")).focus();
+  }
+  $("lb-x").addEventListener("click", () => lb.close());
+  lb.addEventListener("click", (e) => { if (e.target === lb) lb.close(); });
+
+  for (const id of ["q", "area"]) $(id).addEventListener("input", render);
+  for (const b of document.querySelectorAll("[data-theme-pick]")) b.addEventListener("click", () => {
+    theme = b.dataset.themePick;
+    for (const x of document.querySelectorAll("[data-theme-pick]")) x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    render();
+  });
+  $("shoot").addEventListener("click", shoot);
+
+  block("Loading the atlas", "Reading the pictures of this project.", null);
+  try {
+    const t = await picode.use("theme"); theme = t.current() === "light" ? "light" : t.current() === "dark" ? "dark" : theme;
+    for (const x of document.querySelectorAll("[data-theme-pick]")) x.setAttribute("aria-pressed", x.dataset.themePick === theme ? "true" : "false");
+  } catch { /* the system preference stays */ }
+  const ctx = (await picode.use("context")).current() || {};
+  if (ctx.source === "artifact") {
+    source = "artifact";
+    art = await picode.use("artifact");
+    await loadArtifact();
+  } else if (ctx.workspace?.id) {
+    proc = await picode.use("process");
+    ws = ctx.workspace;
+    await loadWorkspace();
+  } else {
+    block("Open Atlas from a workspace", "The gallery belongs to a project: open it from the Atlas entry of a workspace whose folder has an atlas.json.", null);
+  }
+})();
+</script>
+</body>
+</html>

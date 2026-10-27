@@ -1,0 +1,23 @@
+{
+  "id": "atlas",
+  "name": "Atlas",
+  "version": "0.1.0",
+  "apiVersion": 16,
+  "publisher": "COGNIX[WS]",
+  "description": "Photographs every screen of a workspace's web app, empty and with data, light and dark, the same way every time, as a gallery and an app map. The project's atlas.json says how to start it. The first run downloads a pinned headless Chromium (about 100 MB).",
+  "settings": [
+    {"key": "pictures_dir", "label": "Pictures folder", "type": "text", "default": "", "description": "Where the full-size pictures go. Empty keeps them in the extension's folder inside COGNIX[WS]'s data folder."},
+    {"key": "workers", "label": "Worlds at once", "type": "number", "default": 3, "description": "How many copies of the app run side by side during a run."}
+  ],
+  "agent": {
+    "skills": ["skills/atlas"]
+  },
+  "process": {"command": "node", "args": ["${extensionDir}/process.mjs"]},
+  "permissions": ["workspaces:read"],
+  "activation": {"files": ["atlas.json"]},
+  "ui": {"pages": [{"id": "atlas", "title": "Atlas", "path": "ui/atlas.html"}]},
+  "contributes": {
+    "workspace": {"title": "Atlas", "page": "atlas"},
+    "artifactKinds": [{"kind": "appmap", "title": "App map", "entry": "appmap.json", "page": "atlas"}]
+  }
+}

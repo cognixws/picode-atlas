@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "name": "Kepler",
+  "surfaces": [
+    {"id": "home", "title": "Home", "area": "site", "route": "/", "states": ["default"], "wait": {"css": "h1"}},
+    {"id": "nights", "title": "Next clear nights", "area": "site", "route": "/#nights", "states": ["default"], "wait": {"css": "#nights"}},
+    {"id": "pricing", "title": "Pricing", "area": "site", "route": "/#pricing", "states": ["default"], "wait": {"css": "#pricing"}},
+    {"id": "book", "title": "Book a night", "area": "site", "route": "/#book", "states": ["default"], "wait": {"css": "#book"}}
+  ],
+  "states": {"default": {"world": "site", "appmap": "full"}},
+  "worlds": {
+    "site": {"command": "python3 -m http.server {port} --bind 127.0.0.1", "ready": {"path": "/"}}
+  },
+  "capture": {"path": "/", "viewport": {"width": 1440, "height": 900}, "scale": 2}
+}

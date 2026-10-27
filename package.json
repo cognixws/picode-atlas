@@ -1,0 +1,12 @@
+{
+  "name": "picode-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "COGNIX[WS] extension: a gallery and a map of every screen of a web app, empty and populated, light and dark.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {"node": ">=20"}
+}
