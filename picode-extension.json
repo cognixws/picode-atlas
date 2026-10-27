@@ -1,9 +1,10 @@
 {
   "id": "atlas",
   "name": "Atlas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "apiVersion": 16,
   "publisher": "COGNIX[WS]",
+  "icon": "ui/icon.svg",
   "description": "Photographs every screen of a workspace's web app, empty and with data, light and dark, the same way every time, as a gallery and an app map. The project's atlas.json says how to start it. The first run downloads a pinned headless Chromium (about 100 MB).",
   "settings": [
     {"key": "pictures_dir", "label": "Pictures folder", "type": "text", "default": "", "description": "Where the full-size pictures go. Empty keeps them in the extension's folder inside COGNIX[WS]'s data folder."},
