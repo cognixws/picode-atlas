@@ -24,7 +24,7 @@
   .card h3 { font-size: var(--pc-fs-body); margin: 0; }
   .sub { margin: 2px 0 8px; color: var(--pc-text-muted); font-size: var(--pc-fs-label); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .states.one { grid-template-columns: minmax(0, 1fr); max-width: 50%; }
+  .states.one { grid-template-columns: minmax(0, 1fr); }
   figure { margin: 0; min-width: 0; }
   .thumb { position: relative; display: block; width: 100%; padding: 0; border: 1px solid var(--pc-border); border-radius: 6px; background: var(--pc-bg); cursor: zoom-in; overflow: hidden; }
   .thumb img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
@@ -48,7 +48,6 @@
   .lb-bar #lb-x { margin-left: auto; }
   dialog img { display: block; width: auto; max-width: 100%; max-height: calc(100vh - 110px); margin: 0 auto; object-fit: contain; border-radius: 6px; border: 1px solid var(--pc-border); }
   .note { color: var(--pc-text-muted); font-size: var(--pc-fs-label); text-align: center; margin: 6px 0 0; }
-  @media (max-width: 600px) { .states.one { max-width: none; } }
 </style>
 </head>
 <body class="pc-page">
@@ -125,6 +124,7 @@
   }
 
   const name = (s, st, th) => `${s}.${st}.${th}.png`;
+  const reload = () => location.reload();
 
   function figure(s, st) {
     const f = document.createElement("figure");
@@ -153,7 +153,7 @@
   }
 
   function render() {
-    if (!data.surfaces.length) return block("No screens listed", "atlas.json names no surfaces yet. Add the app's screens to its list.", null);
+    if (!data.surfaces.length) return block("No screens listed", "The app's list of screens is empty. Add its screens to atlas.json, then try again.", { label: "Try again", run: reload });
     $("controls").hidden = false;
     const q = $("q").value.trim().toLowerCase();
     const area = $("area").value;
@@ -172,7 +172,8 @@
         const t = document.createElement("h3"); t.textContent = s.title; c.append(t);
         const sub = document.createElement("p"); sub.className = "sub";
         if (s.route) { const r = document.createElement("code"); r.className = "pc-code"; r.textContent = s.route; sub.append(r); }
-        sub.append(s.kind); c.append(sub);
+        if (s.kind && s.kind !== "route") sub.append(s.kind);
+        c.append(sub);
         const sts = document.createElement("div"); sts.className = "states" + (s.states.length === 1 ? " one" : "");
         for (const x of s.states) sts.append(figure(s, x));
         c.append(sts); grid.append(c);
@@ -181,7 +182,8 @@
     }
     if (!n) {
       const d = document.createElement("div"); d.className = "empty";
-      const p = document.createElement("p"); p.textContent = "No screen matches the search and filters."; d.append(p);
+      const h = document.createElement("h2"); h.textContent = "No matching screens"; d.append(h);
+      const p = document.createElement("p"); p.textContent = "No screen matches the search and the area you chose."; d.append(p);
       const b = document.createElement("button"); b.className = "pc-button"; b.type = "button"; b.textContent = "Clear filters";
       b.addEventListener("click", () => { $("q").value = ""; $("area").value = ""; render(); });
       d.append(b); list.append(d);
@@ -215,14 +217,15 @@
       const g = await call(`/gallery?workspace=${encodeURIComponent(ws.id)}`);
       if (g.error) {
         $("shoot").hidden = true;
-        return block("This project has no atlas yet", "Add an atlas.json at the root of the workspace's folder to say how the app starts and which screens it has.", null);
+        return block("This project has no atlas yet", "Add an atlas.json at the root of the workspace's folder to say how the app starts and which screens it has.", { label: "Try again", run: loadWorkspace });
       }
       data = { surfaces: g.surfaces || [], shots: g.shots || {}, run: g.run };
       $("title").textContent = "Atlas · " + (g.project || ws.name);
-      $("meta").textContent = [Object.keys(data.shots).length + " pictures", g.branch ? "branch " + g.branch : "", g.run?.at ? "last run " + g.run.at.replace("T", " ").slice(0, 16) + " UTC" : "", g.browser].filter(Boolean).join(" · ");
+      $("meta").textContent = [Object.keys(data.shots).length ? Object.keys(data.shots).length + " pictures" : "", g.branch ? "branch " + g.branch : "", g.run?.at ? "last run " + g.run.at.replace("T", " ").slice(0, 16) + " UTC" : "", g.browser].filter(Boolean).join(" · ");
       $("shoot").hidden = false;
       const running = showRunState(g.status, g.busy);
-      if (g.surfacesError) return block("The list of screens did not load", g.surfacesError, null);
+      if (g.surfacesError) return block("The list of screens did not load", g.surfacesError, { label: "Try again", run: loadWorkspace });
+      if (!Object.keys(data.shots).length && !running) $("shoot").hidden = true;
       if (!Object.keys(data.shots).length && !running) return block("No pictures yet", "Photograph the app once to fill the gallery; later runs only rewrite what changed.", { label: "Photograph now", run: shoot });
       fillAreas(); render();
       clearTimeout(poll);
@@ -258,10 +261,10 @@
       for (const s of m.screens) for (const st of s.states) for (const c of st.captures || []) shots[c.file] = { rev: c.commit, theme: c.theme };
       data = { surfaces, shots, run: null };
       $("title").textContent = "App map · " + m.app.name;
-      $("meta").textContent = [Object.keys(shots).length + " pictures", m.generated?.branch ? "branch " + m.generated.branch : "", m.generated?.commit ? "commit " + m.generated.commit.slice(0, 9) : "", m.edges?.length ? m.edges.length + " edges" : "no edges yet"].filter(Boolean).join(" · ");
+      $("meta").textContent = [Object.keys(shots).length + " pictures", m.generated?.branch ? "branch " + m.generated.branch : "", m.generated?.commit ? "commit " + m.generated.commit.slice(0, 9) : "", m.edges?.length ? m.edges.length + " links between screens" : ""].filter(Boolean).join(" · ");
       fillAreas(); render();
     } catch (e) {
-      block("This map could not be read", e.message, null);
+      block("This map could not be read", e.message, { label: "Try again", run: loadArtifact });
     }
   }
 
@@ -280,7 +283,7 @@
   function openLb(s, st) {
     cur = s;
     $("lb-title").textContent = s.title + (s.route ? " · " + s.route : "");
-    const box = $("lb-states"); box.textContent = "";
+    const box = $("lb-states"); box.textContent = ""; box.hidden = s.states.length < 2;
     for (const x of s.states) {
       const b = document.createElement("button"); b.className = "pc-button"; b.type = "button"; b.dataset.st = x; b.textContent = label(x);
       b.disabled = !data.shots[name(s.id, x, theme)];
@@ -315,7 +318,7 @@
     ws = ctx.workspace;
     await loadWorkspace();
   } else {
-    block("Open Atlas from a workspace", "The gallery belongs to a project: open it from the Atlas entry of a workspace whose folder has an atlas.json.", null);
+    block("Open Atlas from a workspace", "The gallery belongs to a project: open it from the Atlas entry of a workspace whose folder has an atlas.json.", { label: "Try again", run: reload });
   }
 })();
 </script>
