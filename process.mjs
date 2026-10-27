@@ -3,16 +3,24 @@
 // an agent publishes. It answers only PiCode's relay (the proxy secret).
 
 import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import https from "node:https";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { validateAppmap } from "./lib/appmap.mjs";
 import { parseFilter } from "./lib/registry.mjs";
-import { gallery, projectKey, run, targetDir } from "./lib/runner.mjs";
+import { gallery, projectKey, run, targetDir, targetFor } from "./lib/runner.mjs";
+import { killAll } from "./lib/world.mjs";
 
 const env = process.env;
 const dataDir = env.PICODE_EXT_DATA || join(process.cwd(), "data");
 const secret = env.PICODE_EXT_PROXY_SECRET || "";
+// Fail closed: without PiCode's relay secret nothing here answers.
+if (!secret) throw new Error("no PICODE_EXT_PROXY_SECRET: start the extension through PiCode");
+const secretBuf = Buffer.from(secret);
+const fromRelay = (h) => typeof h === "string" && h.length === secret.length && timingSafeEqual(Buffer.from(h), secretBuf);
+for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, () => { killAll(); process.exit(0); });
+process.on("exit", killAll);
 const log = (m) => console.error("[atlas]", m);
 const base = env.PICODE_URL ? new URL(env.PICODE_URL) : null;
 if (base && !["localhost", "127.0.0.1", "[::1]"].includes(base.hostname)) throw new Error("the Host API must be on loopback");
@@ -101,7 +109,7 @@ const send = (res, status, body) => {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (secret && req.headers["x-picode-proxy-secret"] !== secret) return send(res, 403, { error: "only PiCode's relay reaches this process" });
+    if (!fromRelay(req.headers["x-picode-proxy-secret"])) return send(res, 403, { error: "only PiCode's relay reaches this process" });
     const url = new URL(req.url, "http://localhost");
     const q = url.searchParams;
     if (req.method === "POST" && url.pathname === "/__picode/artifact/validate") {
@@ -112,7 +120,8 @@ const server = http.createServer(async (req, res) => {
       if (typeof b.entryText !== "string") return send(res, 200, { ok: false, error: "appmap.json is larger than 1 MiB or not text" });
       let map;
       try { map = JSON.parse(b.entryText); } catch (e) { return send(res, 200, { ok: false, error: "appmap.json is not JSON: " + e.message }); }
-      const err = validateAppmap(map);
+      let err;
+      try { err = validateAppmap(map); } catch (e) { err = "appmap.json does not follow the contract: " + e.message; }
       return send(res, 200, err ? { ok: false, error: err } : { ok: true });
     }
     if (req.method === "GET" && url.pathname === "/status") {
@@ -138,9 +147,8 @@ const server = http.createServer(async (req, res) => {
       const file = q.get("file") || "";
       if (!SHOT.test(file)) return send(res, 400, { error: "not a picture name" });
       const ws = await workspace(wsId);
-      const g = gallery({ projectDir: ws.path, project: ws.id, picturesRoot: await picturesRoot() });
-      if (g.error) return send(res, 409, { error: g.error });
-      const path = join(g.target, url.pathname === "/thumb" ? "thumbs" : "shots", file);
+      const target = targetFor({ projectDir: ws.path, project: ws.id, picturesRoot: await picturesRoot() });
+      const path = join(target, url.pathname === "/thumb" ? "thumbs" : "shots", file);
       if (!existsSync(path)) return send(res, 404, { error: "no such picture yet" });
       const bytes = readFileSync(path).toString("base64");
       // The relay carries 1 MiB as text: a full picture comes in base64 chunks.

@@ -18,3 +18,9 @@ The phases of the merged proposal (COGNIX[WS] ADR-0278 and ADR-0382, amended
   local origin); the playground an agent writes as reviewed code.
 - **U6 — more apps.** A real app outside COGNIX[WS]; `expo-web` and Electron's
   renderer; native apps, pictures only.
+
+## Debts from the U0 security review (2026-10-27)
+
+- [ ] Prune keeps old pictures of states that are now failed, broken or owed, and never removes files missing from the manifest.
+- [ ] A full picture is read again for every chunk: a run rewriting it between chunks tears it. Serve from a copy taken at the first chunk.
+- [ ] `a/b` and `a-b` branches (and workspace ids that clean to one key) share a folder.

@@ -43,7 +43,9 @@ test("the adapter fills defaults and keeps the built-in rewrites", () => {
   const swap = (x) => rules.reduce((acc, [re, t]) => acc.replace(re, t), x);
   assert.equal(swap("http://127.0.0.1:52442/x"), "http://127.0.0.1:3000/x");
   assert.equal(swap("lan 192.168.1.40, chrome 141.0.7390.54, bind 0.0.0.0"), "lan 192.168.50.24, chrome 141.0.7390.54, bind 0.0.0.0");
-  assert.equal(swap("kepler-host by vega"), "atlas-host by atlas-user");
+  assert.equal(swap("kepler-host at /home/vega/app, vega@kepler-host"), "atlas-host at /home/atlas-user/app, atlas-user@atlas-host");
+  // The user name is a word of the app's own text elsewhere, never rewritten.
+  assert.equal(swap("a vega launch"), "a vega launch");
 });
 
 test("jobs expand states into worlds and themes; owed and broken are listed", () => {
@@ -70,7 +72,10 @@ test("a run writes beside main, never over it", () => {
   assert.equal(targetDir("/p", "kepler", "feat/x"), "/p/kepler/branches/feat-x");
   assert.equal(targetDir("/p", "kepler", "HEAD", "0123456789ab"), "/p/kepler/branches/detached-012345678");
   assert.equal(projectKey("My App!"), "my-app");
-  assert.equal(fillCommand("serve {port} {tmp}/x {world}", { port: 9, tmp: "/t", world: "empty" }), "serve 9 /t/x empty");
+  assert.equal(fillCommand("serve {port} {tmp}/x {world}", { port: 9, tmp: "/t", world: "empty" }), "serve 9 '/t'/x 'empty'");
+  // A folder name is a path for the shell, never code.
+  assert.equal(fillCommand("cd {project}", { project: "/a b/$(x)'y" }), "cd '/a b/$(x)'\\''y'");
+  assert.equal(projectKey(".."), "project");
 });
 
 test("appmap: built from a run, every capture names its provenance", () => {
@@ -89,6 +94,17 @@ test("appmap: built from a run, every capture names its provenance", () => {
   bad.edges = [{ from: { screen: "inbox" }, to: { screen: "nowhere" }, kind: "declared" }];
   assert.match(validateAppmap(bad), /names a screen/);
   assert.match(validateAppmap({ v: 1, app: { name: "x" }, screens: [{ id: "a", states: [] }, { id: "a", states: [] }] }), /twice/);
+  // Provenance is text, not merely truthy; malformed parts are refused, never thrown.
+  const odd = structuredClone(map);
+  odd.screens[0].states[0].captures[0].commit = true;
+  assert.match(validateAppmap(odd), /lacks commit/);
+  odd.screens[0].states[0].captures[0].commit = "abc";
+  odd.screens[0].states[0].captures[0].file = "../x.png";
+  assert.match(validateAppmap(odd), /picture name/);
+  odd.screens[0].states[0].captures = 3;
+  assert.match(validateAppmap(odd), /captures is a list/);
+  assert.match(validateAppmap({ ...map, edges: [null] }), /edge is an object/);
+  assert.match(validateAppmap({ ...map, edges: 0 }), /edges is a list/);
 });
 
 test("the scene helpers keep their rules", () => {
